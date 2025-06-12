@@ -5,9 +5,9 @@ from jenkins_mcp.jenkins.client import JenkinsClient
 def main():
     print("Connecting to Jenkins MCP Server")
     parser=argparse.ArgumentParser(description="Jenkins Server Parameters")
-    parser.add_argument("--jenkins-url", help="Jenkins Server URL", required=False, dest="jenkins_url", default=os.getenv("JENKINS_URL"))
-    parser.add_argument("--jenkins-user", help="Jenkins Server User", required=False, dest="jenkins_user", default=os.getenv("JENKINS_USER"))
-    parser.add_argument("--jenkins-password", help="Jenkins Server Password", required=False, dest="jenkins_password", default=os.getenv("JENKINS_PASSWORD"))
+    parser.add_argument("--jenkins-url", help="Jenkins Server URL", required=False, dest="jenkins_url")
+    parser.add_argument("--jenkins-user", help="Jenkins Server User", required=False, dest="jenkins_user")
+    parser.add_argument("--jenkins-password", help="Jenkins Server Password", required=False, dest="jenkins_password")
     args=parser.parse_args()
 
     if args.jenkins_url is None or args.jenkins_user is None or args.jenkins_password is None:
