@@ -25,6 +25,9 @@ class JenkinsClient:
         for job in self.jenkins.get_jobs():
             names.append(job['name'])
         return names
+    
+    def get_job_info(self, job_name):
+        return self.jenkins.get_job_config(job_name)
 
     def getJenkinsClient():
         return JenkinsClient()
