@@ -1,0 +1,6 @@
+We currently support the following cloud providers in test_matrix_run job Manual mode:
+- "AWS", alias self-managed AWS
+- "GCP", alias self-managed GCP
+- "Managed AWS", alias OSD alias OSD/AWS
+- "Managed GCP", alias OSD alial OSD/GCP
+- "PSI", alias OpenStack OCP
