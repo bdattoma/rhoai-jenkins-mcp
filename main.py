@@ -13,16 +13,13 @@ def main():
     if args.jenkins_url is None or args.jenkins_user is None or args.jenkins_password is None:
         print("Jenkins Server Parameters are not set")
         return
-    # rm env variables, not used
-    os.environ['JENKINS_URL'] = args.jenkins_url
-    os.environ['JENKINS_USER'] = args.jenkins_user
-    os.environ['JENKINS_PASSWORD'] = args.jenkins_password
+
     print(args)
     print(f"Jenkins Server URL: {args.jenkins_url}")
     print(f"Jenkins Server User: {args.jenkins_user}")
     print(f"Jenkins Server Password: {args.jenkins_password}")
 
-    jenkins_client = JenkinsClient(os.environ['JENKINS_URL'], os.environ['JENKINS_USER'], os.environ['JENKINS_PASSWORD'])
+    jenkins_client = JenkinsClient(args.jenkins_url, args.jenkins_user, args.jenkins_password)
     
     print("Starting MCP Server")
     from jenkins_mcp.server import mcp
@@ -30,4 +27,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
