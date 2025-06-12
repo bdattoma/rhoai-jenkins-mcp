@@ -15,6 +15,9 @@ class JenkinsClient:
             cls.instance.username = username
             cls.instance.password = password
             cls.instance.jenkins = jenkins.Jenkins(url, username, password)
+            print(f"Jenkins Client created for {url}")
+        else:
+            print(f"Re-using existant Jenkins Client for {cls.instance.url}")
         return cls.instance
     
     def get_jobs(self):
