@@ -24,10 +24,8 @@ def main():
 
     jenkins_client = JenkinsClient(os.environ['JENKINS_URL'], os.environ['JENKINS_USER'], os.environ['JENKINS_PASSWORD'])
     
+    print("Starting MCP Server")
     from jenkins_mcp.server import mcp
-    import jenkins_mcp.server.basic_tools
-
-
     mcp.run(transport="stdio")
 
 if __name__ == "__main__":
