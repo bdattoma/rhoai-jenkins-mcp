@@ -51,9 +51,10 @@ async def provision_cluster(cluster_name: str, cluster_type: str, **config) -> s
     """
     Provision a cluster for the given provider and config.
     Args:
-        cluster_name (str): The name of the cluster to provision.
+        cluster_name (str) (required): The name of the cluster to provision.
+        cluster_type (str) (optional): The type of the cluster to provision.
         config (dict) (optional): The config to provision the cluster with:
-            - TEST_ENVIRONMENT: the cloud provider to provision the cluster on.
+            - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on.
             - TEST_PLATFORM: applicable to Managed clusters only
             - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to self-managed clusters only
             - FIPS: enable FIPS mode
