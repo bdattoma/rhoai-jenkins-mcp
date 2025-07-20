@@ -44,3 +44,36 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
     }
     build_info = jenkins_client.jenkins.build_job(job_name, parameters=params)
     return f"Triggered {job_name} for {build_image_url}. Build info: {build_info}"
+
+
+@mcp.tool()
+async def provision_cluster(cluster_name: str, cluster_type: str, **config) -> str:
+    """
+    Provision a cluster for the given provider and config.
+    Args:
+        cluster_name (str): The name of the cluster to provision.
+        config (dict) (optional): The config to provision the cluster with:
+            - TEST_ENVIRONMENT: the cloud provider to provision the cluster on.
+            - TEST_PLATFORM: applicable to Managed clusters only
+            - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to self-managed clusters only
+            - FIPS: enable FIPS mode
+            - CLUSTER_ACTION_POST_EXECUTION: the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
+    Returns:
+        String: The jenki,ns job run URL.
+    """
+    job_name = "devops/rhoai-test-flow"
+    params = {
+        "CLUSTER_NAME": cluster_name,
+        "CLUSTER_TYPE": cluster_type,
+        "INSTALL_CLUSTER": True,
+        "DEPROVISION_ON_FAILURE": True,
+        "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
+        "RUN_TESTS": False,  # temporary fixed
+        "PUBLISH_RESULTS_TO": "",  # temporary fixed
+    }
+    if config:
+        for key, value in config.items():
+            params[key] = value
+    build_info = jenkins_client.jenkins.build_job(job_name, parameters=params)
+    return f"Triggered {job_name} for {cluster_name}. Build info: {build_info}"
+
