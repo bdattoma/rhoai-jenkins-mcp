@@ -49,7 +49,7 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
 
 
 @mcp.tool()
-async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict[str, Any]) -> str:
+async def provision_cluster(cluster_name: str, cluster_type: str = "self-managed", **config: Dict[str, Any]) -> str:
     """
     Provision a cluster for the given provider and config.
     Args:
