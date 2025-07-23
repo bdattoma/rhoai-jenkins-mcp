@@ -61,6 +61,7 @@ async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict
             - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to self-managed clusters only
             - FIPS: enable FIPS mode
             - CLUSTER_ACTION_POST_EXECUTION: the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
+            - TEAM_NAME: The team to run the job for.
     Returns:
         String: The jenki,ns job run URL.
     """
@@ -73,6 +74,7 @@ async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict
         "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
         "RUN_TESTS": False,  # temporary fixed
         "PUBLISH_RESULTS_TO": "",  # temporary fixed
+        "TEAM_NAME": "devtestops",
     }
     for key, value in config['config'].items():
         params[key] = value
