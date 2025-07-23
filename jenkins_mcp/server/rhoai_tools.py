@@ -1,11 +1,12 @@
 from collections import defaultdict
 from jenkins_mcp.jenkins.client import JenkinsClient
 from jenkins_mcp.server import mcp
+from typing import Dict, Any
 
 jenkins_client = JenkinsClient.getJenkinsClient()
 
 @mcp.tool()
-async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: dict, mode: str = "auto") -> list:
+async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: dict, team: str, mode: str = "auto") -> list:
     """
     Run the test_matrix_run job on the given build image URL.
     Validate a RHOAI build against the given providers.
@@ -15,7 +16,7 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
         build_image_url (str): The URL of the build image to validate.
         mode (str): The mode to run the test matrix in.
         providers (dict): The providers to validate the build against.
-
+        team (str): The team to run the test matrix for. Default to devtestops
     Returns:
         String: The jenkins job run URL.
     """
@@ -40,14 +41,15 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
         "OVERRIDE_ODS_BUILD_URL": build_image_url,
         "RHOAI_VERSION_XY": rhoai_version,
         "FETCH_TEST_MATRIX": fetch,
-        "CLOUD_PROVIDERS_TABLE": prov_strs
+        "CLOUD_PROVIDERS_TABLE": prov_strs,
+        "TEAM_NAME": team,
     }
     build_info = jenkins_client.jenkins.build_job(job_name, parameters=params)
     return f"Triggered {job_name} for {build_image_url}. Build info: {build_info}"
 
 
 @mcp.tool()
-async def provision_cluster(cluster_name: str, cluster_type: str, **config) -> str:
+async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict[str, Any]) -> str:
     """
     Provision a cluster for the given provider and config.
     Args:
@@ -72,9 +74,8 @@ async def provision_cluster(cluster_name: str, cluster_type: str, **config) -> s
         "RUN_TESTS": False,  # temporary fixed
         "PUBLISH_RESULTS_TO": "",  # temporary fixed
     }
-    if config:
-        for key, value in config.items():
-            params[key] = value
+    for key, value in config['config'].items():
+        params[key] = value
     build_info = jenkins_client.jenkins.build_job(job_name, parameters=params)
     return f"Triggered {job_name} for {cluster_name}. Build info: {build_info}"
 
