@@ -5,6 +5,7 @@ from typing import Dict, Any
 
 jenkins_client = JenkinsClient.getJenkinsClient()
 
+
 @mcp.tool()
 async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: dict, team: str, mode: str = "auto") -> list:
     """
@@ -44,16 +45,15 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
         "CLOUD_PROVIDERS_TABLE": prov_strs,
         "TEAM_NAME": team,
     }
-    build_info = jenkins_client.jenkins.build_job(job_name, parameters=params)
-    return f"Triggered {job_name} for {build_image_url}. Build info: {build_info}"
+    return jenkins_client.run_job(job_name, params)
 
 
 @mcp.tool()
-async def provision_cluster(cluster_name: str, cluster_type: str = "self-managed", **config: Dict[str, Any]) -> str:
+async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict[str, Any]) -> str:
     """
     Provision a cluster for the given provider and config.
     Args:
-        cluster_name (str) (required): The name of the cluster to provision.
+        cluster_name (str) (required): The name of the cluster to provision. It MUST be long less than 15 characters.
         cluster_type (str) (optional): The type of the cluster to provision.
         config (dict) (optional): The config to provision the cluster with:
             - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on.
@@ -63,12 +63,12 @@ async def provision_cluster(cluster_name: str, cluster_type: str = "self-managed
             - CLUSTER_ACTION_POST_EXECUTION: the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
             - TEAM_NAME: The team to run the job for.
     Returns:
-        String: The jenki,ns job run URL.
+        String: The jenkins job run URL.
     """
     job_name = "devops/rhoai-test-flow"
     params = {
         "CLUSTER_NAME": cluster_name,
-        "CLUSTER_TYPE": cluster_type,
+        "CLUSTER_TYPE": cluster_type if cluster_type else "self-managed",
         "INSTALL_CLUSTER": True,
         "DEPROVISION_ON_FAILURE": True,
         "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
@@ -78,6 +78,5 @@ async def provision_cluster(cluster_name: str, cluster_type: str = "self-managed
     }
     for key, value in config['config'].items():
         params[key] = value
-    build_info = jenkins_client.jenkins.build_job(job_name, parameters=params)
-    return f"Triggered {job_name} for {cluster_name}. Build info: {build_info}"
+    return jenkins_client.run_job(job_name, params)
 
