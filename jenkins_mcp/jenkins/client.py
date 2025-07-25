@@ -32,3 +32,14 @@ class JenkinsClient:
     def getJenkinsClient():
         return JenkinsClient()
 
+    def run_job(self, job_name, params):
+        queue_number = self.jenkins.build_job(job_name, parameters=params)
+        queue_item = self.jenkins.get_queue_item(queue_number)
+        if queue_item and queue_item.get('executable', {}).get('url', None):
+            build_url = queue_item['executable']['url']
+            msg = f"{job_name} triggered. Build URL: {build_url}"
+        else:
+            build_url = None
+            msg = f"{job_name} waiting to be scheduled. Queue number: {queue_number}"
+        return msg
+
