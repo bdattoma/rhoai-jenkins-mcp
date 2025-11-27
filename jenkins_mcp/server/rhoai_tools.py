@@ -57,10 +57,10 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
         cluster_name (str) (required): The name of the cluster to provision. It MUST be long less than 15 characters.
         cluster_type (str) (optional): The type of the cluster to provision.
         config (dict) (optional): The config to provision the cluster with:
-            - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on.
+            - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on. Default to IBM
             - TEST_PLATFORM: applicable to Managed clusters only
-            - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to selfmanaged clusters only
-            - FIPS: enable FIPS mode
+            - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to selfmanaged clusters only. Default to False
+            - ENABLE_FIPS_IN_CLUSTER: enable FIPS mode
             - CLUSTER_ACTION_POST_EXECUTION: the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
             - TEAM_NAME: The team to run the job for.
     Returns:
