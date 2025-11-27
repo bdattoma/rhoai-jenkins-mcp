@@ -49,7 +49,8 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
 
 
 @mcp.tool()
-async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict[str, Any]) -> str:
+async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[str, Any] = {}) -> str:
+#async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict[str, Any]) -> str:
     """
     Provision a cluster for the given provider and config.
     Args:
@@ -58,7 +59,7 @@ async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict
         config (dict) (optional): The config to provision the cluster with:
             - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on.
             - TEST_PLATFORM: applicable to Managed clusters only
-            - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to self-managed clusters only
+            - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to selfmanaged clusters only
             - FIPS: enable FIPS mode
             - CLUSTER_ACTION_POST_EXECUTION: the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
             - TEAM_NAME: The team to run the job for.
@@ -68,15 +69,24 @@ async def provision_cluster(cluster_name: str, cluster_type: str, **config: Dict
     job_name = "devops/rhoai-test-flow"
     params = {
         "CLUSTER_NAME": cluster_name,
-        "CLUSTER_TYPE": cluster_type if cluster_type else "self-managed",
+        "CLUSTER_TYPE": cluster_type.lower() if cluster_type else "selfmanaged",
         "INSTALL_CLUSTER": True,
         "DEPROVISION_ON_FAILURE": True,
         "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
         "RUN_TESTS": False,  # temporary fixed
         "PUBLISH_RESULTS_TO": "",  # temporary fixed
-        "TEAM_NAME": "devtestops",
     }
-    for key, value in config['config'].items():
+    #for key, value in config['config'].items():
+    for key, value in config.items():
         params[key] = value
+    if len(params.get('CLUSTER_NAME')) > 15:
+        raise ValueError("Cluster name must be less or equal to 15 characters")
     return jenkins_client.run_job(job_name, params)
 
+async def get_cluster_info_from_build(build_number: str) -> dict:
+    """
+    Get the cluster info from the given build number of provisioning job.
+    """
+    job_name = "devops/rhoai-test-flow"
+    build_info = jenkins_client.jenkins.get_build_info(job_name, build_number)
+    return build_info['cluster_info']
