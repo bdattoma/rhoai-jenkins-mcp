@@ -5,6 +5,44 @@ from typing import Dict, Any
 
 jenkins_client = JenkinsClient.getJenkinsClient()
 
+cluster_default_configs = {
+    "AWS": {
+        "master_nodes": "3",
+        "worker_nodes": "3",
+        "master_flavor": "m5.2xlarge",
+        "worker_flavor": "m5.2xlarge",
+        "region": "us-east-1"
+    },
+    "GCP": {
+        "master_nodes": "3",
+        "worker_nodes": "3",
+        "master_flavor": "custom-8-32768",
+        "worker_flavor": "n2-standard-8",
+        "region": "us-central1"
+    },
+    "IBM": {
+        "master_nodes": "3",
+        "worker_nodes": "3",
+        "master_flavor": "bx2-4x16",
+        "worker_flavor": "bx2-4x16",
+        "region": "us-east"
+    },
+    "AZURE": {
+        "master_nodes": "3",
+        "worker_nodes": "3",
+        "master_flavor": "Standard_D8s_v4",
+        "worker_flavor": "Standard_D8s_v4",
+        "region": "eastus"
+    },
+    "ROSA": {
+        "master_nodes": "3",
+        "worker_nodes": "3",
+        "master_flavor": "m5.2xlarge",
+        "worker_flavor": "m5.2xlarge",
+        "region": "us-east-1"
+    }
+}
+
 
 @mcp.tool()
 async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: dict, team: str, mode: str = "auto") -> list:
@@ -58,6 +96,10 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
         cluster_type (str) (optional): The type of the cluster to provision.
         config (dict) (optional): The config to provision the cluster with:
             - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on. Default to IBM
+            - OCP_VERSION: the OpenShift version to provision the cluster on
+            - OCP_CHANNEL: the OpenShift channel to provision the cluster on. Default to stable
+            - REGION: the region to provision the cluster on
+            - CLUSTER_ARCHITECTURE: the architecture of the cluster to provision on. Default to amd64
             - TEST_PLATFORM: applicable to Managed clusters only
             - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to selfmanaged clusters only. Default to False
             - ENABLE_FIPS_IN_CLUSTER: enable FIPS mode
@@ -67,6 +109,23 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
         String: The jenkins job run URL.
     """
     job_name = "devops/rhoai-test-flow"
+
+    test_environment = config.get('TEST_ENVIRONMENT', 'IBM')
+    test_environment_config = cluster_default_configs.get(test_environment, cluster_default_configs["IBM"])
+    ocp_version = config.get('OCP_VERSION', '4.20-latest')
+    if len(ocp_version.split('.')) == 2:
+        ocp_version = f"{ocp_version}-latest"
+    test_cluster_details = ",".join([
+        config.get('REGION', test_environment_config['region']),
+        config.get('NUMBER_OF_MASTER_NODES', test_environment_config['master_nodes']),
+        config.get('NUMBER_OF_WORKER_NODES', test_environment_config['worker_nodes']),
+        config.get('MASTER_FLAVOR', test_environment_config['master_flavor']),
+        config.get('WORKER_FLAVOR', test_environment_config['worker_flavor']),
+        ocp_version,
+        config.get('OCP_CHANNEL', 'stable'),
+        config.get('CLUSTER_ARCHITECTURE', 'amd64'),
+    ])
+
     params = {
         "CLUSTER_NAME": cluster_name,
         "CLUSTER_TYPE": cluster_type.lower() if cluster_type else "selfmanaged",
@@ -75,10 +134,12 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
         "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
         "RUN_TESTS": False,  # temporary fixed
         "PUBLISH_RESULTS_TO": "",  # temporary fixed
+        "TEST_CLUSTER_DETAILS": test_cluster_details,
     }
     #for key, value in config['config'].items():
     for key, value in config.items():
-        params[key] = value
+        if key not in params:   # if the param is already set it means it needs some logic first, do not override it
+            params[key] = value
     if len(params.get('CLUSTER_NAME')) > 15:
         raise ValueError("Cluster name must be less or equal to 15 characters")
     return jenkins_client.run_job(job_name, params)
