@@ -1,6 +1,8 @@
 # from jenkinsapi import jenkins
 import jenkins
 import os
+import requests
+from io import BytesIO
 
 
 class JenkinsClient:
@@ -42,4 +44,47 @@ class JenkinsClient:
             build_url = None
             msg = f"{job_name} waiting to be scheduled. Queue number: {queue_number}"
         return msg
+
+    def run_job_with_file_param(self, job_name, params, file_param_name="EXTERNAL_KUBECONFIG_FILE"):
+        """
+        Trigger a Jenkins job that has a File Parameter.
+        """
+        # Build URL for the job
+        build_url = f"{self.url}/job/{job_name.replace('/', '/job/')}/buildWithParameters"
+        
+        # Prepare multipart form data
+        files = {}
+        data = {}
+        
+        for key, value in params.items():
+            data[key] = str(value)
+        
+        # Add empty file for the file parameter
+        files[file_param_name] = ('', BytesIO(b''), 'application/octet-stream')
+        
+        # Make the request with auth
+        response = requests.post(
+            build_url,
+            data=data,
+            files=files,
+            auth=(self.username, self.password)
+        )
+        
+        if response.status_code == 201:
+            # Job was queued successfully
+            queue_url = response.headers.get('Location', '')
+            if queue_url:
+                # Extract queue number and get build info
+                queue_number = int(queue_url.rstrip('/').split('/')[-1])
+                queue_item = self.jenkins.get_queue_item(queue_number)
+                if queue_item and queue_item.get('executable', {}).get('url', None):
+                    build_url = queue_item['executable']['url']
+                    msg = f"{job_name} triggered. Build URL: {build_url}"
+                else:
+                    msg = f"{job_name} waiting to be scheduled. Queue number: {queue_number}"
+            else:
+                msg = f"{job_name} triggered successfully."
+            return msg
+        else:
+            raise Exception(f"Failed to trigger job: {response.status_code} - {response.text}")
 
