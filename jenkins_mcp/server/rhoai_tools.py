@@ -11,6 +11,7 @@ cluster_default_configs = {
         "worker_nodes": "3",
         "master_flavor": "m5.2xlarge",
         "worker_flavor": "m5.2xlarge",
+        "single_node_flavor": "m5.8xlarge",
         "region": "us-east-1"
     },
     "GCP": {
@@ -18,6 +19,7 @@ cluster_default_configs = {
         "worker_nodes": "3",
         "master_flavor": "custom-8-32768",
         "worker_flavor": "n2-standard-8",
+        "single_node_flavor": "n2-standard-8",
         "region": "us-central1"
     },
     "IBM": {
@@ -25,6 +27,7 @@ cluster_default_configs = {
         "worker_nodes": "3",
         "master_flavor": "bx2-4x16",
         "worker_flavor": "bx2-4x16",
+        "single_node_flavor": "bx2-32x128",
         "region": "us-east"
     },
     "AZURE": {
@@ -32,6 +35,7 @@ cluster_default_configs = {
         "worker_nodes": "3",
         "master_flavor": "Standard_D8s_v4",
         "worker_flavor": "Standard_D8s_v4",
+        "single_node_flavor": "Standard_D32s_v4",
         "region": "eastus"
     },
     "ROSA": {
@@ -94,17 +98,22 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
     Args:
         cluster_name (str) (required): The name of the cluster to provision. It MUST be long less than 15 characters.
         cluster_type (str) (optional): The type of the cluster to provision.
-        config (dict) (optional): The config to provision the cluster with:
-            - TEST_ENVIRONMENT: alias for Provider, the cloud provider to provision the cluster on. Default to IBM
-            - OCP_VERSION: the OpenShift version to provision the cluster on
-            - OCP_CHANNEL: the OpenShift channel to provision the cluster on. Default to stable
-            - REGION: the region to provision the cluster on
-            - CLUSTER_ARCHITECTURE: the architecture of the cluster to provision on. Default to amd64
-            - TEST_PLATFORM: applicable to Managed clusters only
-            - SINGLE_NODE_OPENSHIFT: also known as SNO, applicable to selfmanaged clusters only. Default to False
-            - ENABLE_FIPS_IN_CLUSTER: enable FIPS mode
-            - CLUSTER_ACTION_POST_EXECUTION: the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
-            - TEAM_NAME: The team to run the job for.
+        config (dict) (required): The config to provision the cluster with:
+            - TEST_ENVIRONMENT (required): alias for Provider, the cloud provider to provision the cluster on. Default to IBM
+            - OCP_VERSION (required): the OpenShift version to provision the cluster on.
+            - OCP_CHANNEL (optional): the OpenShift channel to provision the cluster on. Default to stable
+            - REGION (optional): the region to provision the cluster on
+            - CLUSTER_ARCHITECTURE (optional): the architecture of the cluster to provision on (amd64, arm64). Default to amd64
+            - TEST_PLATFORM (optional): applicable to Managed clusters only
+            - SINGLE_NODE_OPENSHIFT (optional): also known as SNO, applicable to selfmanaged clusters only. Default to False
+            - ENABLE_FIPS_IN_CLUSTER (optional): enable FIPS mode
+            - CLUSTER_ACTION_POST_EXECUTION (optional): the action to take after the cluster is provisioned (Retain, Delete or Hibernate)
+            - TEAM_NAME (optional): The team to run the job for.
+            - NUMBER_OF_MASTER_NODES (optional): the number of master nodes to provision the cluster on. If SNO, this is 1.
+            - NUMBER_OF_WORKER_NODES (optional): the number of worker nodes to provision the cluster on. If SNO, this is 0.
+            - MASTER_FLAVOR (optional): the flavor of the master node to provision the cluster on. Default values are defined in the cluster_default_configs dictionary.
+            - WORKER_FLAVOR (optional): the flavor of the worker node to provision the cluster on. Default values are defined in the cluster_default_configs dictionary.
+            - TEST_CLUSTER_DETAILS (optional): virtual machine configuration details for the cluster. Compose this field with the following format: REGION,NUMBER_OF_MASTER_NODES,NUMBER_OF_WORKER_NODES,MASTER_FLAVOR,WORKER_FLAVOR,OCP_VERSION,OCP_CHANNEL,CLUSTER_ARCHITECTURE. If SNO, this is the single node flavor.
     Returns:
         String: The jenkins job run URL.
     """
@@ -130,7 +139,8 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
         "CLUSTER_NAME": cluster_name,
         "CLUSTER_TYPE": cluster_type.lower() if cluster_type else "selfmanaged",
         "INSTALL_CLUSTER": True,
-        "DEPROVISION_ON_FAILURE": True,
+        "TEST_ENVIRONMENT": test_environment,
+        "DEPROVISION_AFTER_INSTALL_FAILURE": True,
         "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
         "RUN_TESTS": False,  # temporary fixed
         "PUBLISH_RESULTS_TO": "",  # temporary fixed
@@ -142,7 +152,9 @@ async def provision_cluster(cluster_name: str, cluster_type: str, config: Dict[s
             params[key] = value
     if len(params.get('CLUSTER_NAME')) > 15:
         raise ValueError("Cluster name must be less or equal to 15 characters")
-    return jenkins_client.run_job(job_name, params)
+    #return jenkins_client.run_job(job_name, params)
+    # Use the file param method since this job has a File Parameter (EXTERNAL_KUBECONFIG_FILE)
+    return jenkins_client.run_job_with_file_param(job_name, params, "EXTERNAL_KUBECONFIG_FILE")
 
 async def get_cluster_info_from_build(build_number: str) -> dict:
     """
