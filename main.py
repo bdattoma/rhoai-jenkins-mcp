@@ -1,6 +1,7 @@
 import argparse
 import os
 from jenkins_mcp.jenkins.client import JenkinsClient
+from jenkins_mcp.server import mcp
 
 def main():
     print("Connecting to Jenkins MCP Server")
@@ -22,7 +23,7 @@ def main():
     jenkins_client = JenkinsClient(args.jenkins_url, args.jenkins_user, args.jenkins_password)
     
     print("Starting MCP Server")
-    from jenkins_mcp.server import mcp
+    # from jenkins_mcp.server import mcp
     mcp.run(transport="stdio")
 
 if __name__ == "__main__":
