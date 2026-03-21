@@ -7,117 +7,13 @@ import json
 
 # jenkins_client = JenkinsClient.getJenkinsClient()
 
-# Internal dictionary for cluster defaults
-_cluster_default_configs = {
-    "AWS": {
-        "master_nodes": "3",
-        "worker_nodes": "3",
-        "master_flavor": "m5.2xlarge",
-        "worker_flavor": "m5.2xlarge",
-        "single_node_flavor": "m5.8xlarge",
-        "region": "us-east-1"
-    },
-    "GCP": {
-        "master_nodes": "3",
-        "worker_nodes": "3",
-        "master_flavor": "custom-8-32768",
-        "worker_flavor": "n2-standard-8",
-        "single_node_flavor": "n2-standard-8",
-        "region": "us-central1"
-    },
-    "IBM": {
-        "master_nodes": "3",
-        "worker_nodes": "3",
-        "master_flavor": "bx2-4x16",
-        "worker_flavor": "bx2-4x16",
-        "single_node_flavor": "bx2-32x128",
-        "region": "us-east"
-    },
-    "AZURE": {
-        "master_nodes": "3",
-        "worker_nodes": "3",
-        "master_flavor": "Standard_D8s_v4",
-        "worker_flavor": "Standard_D8s_v4",
-        "single_node_flavor": "Standard_D32s_v4",
-        "region": "eastus"
-    },
-    "ROSA": {
-        "master_nodes": "3",
-        "worker_nodes": "3",
-        "master_flavor": "m5.2xlarge",
-        "worker_flavor": "m5.2xlarge",
-        "region": "us-east-1"
-    }
-}
 
+class ClusterOffering(BaseModel):
+    """Configuration for cluster offering."""
 
-class ClusterProvisionConfig(BaseModel):
-    """Configuration for cluster provisioning."""
-
-    # Required fields
-    test_environment: Literal["AWS", "GCP", "IBM", "AZURE", "ROSA"] = Field(
-        default="AZURE",
-        description="Cloud provider to provision the cluster on"
-    )
-    ocp_version: str = Field(
-        default="4.20-latest",
-        description="OpenShift version (e.g., '4.20' or '4.20-latest')"
-    )
-
-    # Optional - Cluster architecture
-    ocp_channel: str = Field(
-        default="stable",
-        description="OpenShift channel (stable, fast, candidate)"
-    )
-    region: Optional[str] = Field(
-        default=None,
-        description="Region to provision in (uses provider default if not specified)"
-    )
-    cluster_architecture: Literal["amd64", "arm64"] = Field(
-        default="amd64",
-        description="Cluster CPU architecture"
-    )
-
-    # Optional - Cluster size
-    number_of_master_nodes: Optional[str] = Field(
-        default=None,
-        description="Number of master nodes (uses provider default if not specified)"
-    )
-    number_of_worker_nodes: Optional[str] = Field(
-        default=None,
-        description="Number of worker nodes (uses provider default if not specified)"
-    )
-    master_flavor: Optional[str] = Field(
-        default=None,
-        description="Master node VM type (uses provider default if not specified)"
-    )
-    worker_flavor: Optional[str] = Field(
-        default=None,
-        description="Worker node VM type (uses provider default if not specified)"
-    )
-
-    # Optional - Special configurations
-    single_node_openshift: bool = Field(
-        default=False,
-        description="Enable Single Node OpenShift (SNO) - only for selfmanaged clusters"
-    )
-    enable_fips_in_cluster: bool = Field(
-        default=False,
-        description="Enable FIPS mode in the cluster"
-    )
-    test_platform: Optional[str] = Field(
-        default=None,
-        description="Test platform - applicable to managed clusters only"
-    )
-
-    # Optional - Post-provisioning
-    cluster_action_post_execution: Optional[Literal["Retain", "Delete", "Hibernate"]] = Field(
-        default=None,
-        description="Action to take after cluster provisioning completes"
-    )
-    team_name: Optional[str] = Field(
-        default=None,
-        description="Team name for the provisioning job"
+    cluster_offerings: Literal["AWS", "AWS OSD", "GCP", "GCP OSD", "IBM", "AZURE", "ROSA Classic", "ROSA HCP", "PSI"] = Field(
+        default="ROSA HCP",
+        description="Offering type to provision the cluster on"
     )
 
     class Config:
@@ -125,39 +21,16 @@ class ClusterProvisionConfig(BaseModel):
         populate_by_name = True
 
 
-@mcp.resource("cluster://defaults")
-async def get_cluster_default_configs() -> str:
+@mcp.resource("cluster://offerings")
+async def get_cluster_offerings() -> str:
     """
-    Get default cluster configuration values for all supported cloud providers.
-    
-    Returns cluster defaults for AWS, GCP, IBM, AZURE, and ROSA including:
-    - master_nodes: Number of master nodes
-    - worker_nodes: Number of worker nodes
-    - master_flavor: VM/instance type for master nodes
-    - worker_flavor: VM/instance type for worker nodes
-    - single_node_flavor: VM/instance type for single node OpenShift (SNO)
-    - region: Default region for the provider
+    Get all cluster offerings supported by the system.
     
     Returns:
-        str: JSON-formatted cluster default configurations
+        str: JSON-formatted cluster offerings
     """
-    return json.dumps(_cluster_default_configs, indent=2)
-
-@mcp.resource("cluster://defaults/{provider}")
-async def get_cluster_provider_config(provider: str) -> str:
-    """
-    Get default cluster configuration for a specific cloud provider.
-    
-    Args:
-        provider: Cloud provider name (AWS, GCP, IBM, AZURE, or ROSA)
-    
-    Returns:
-        str: JSON-formatted cluster configuration for the specified provider
-    """
-    provider = provider.upper()
-    if provider not in _cluster_default_configs:
-        raise ValueError(f"Unknown provider: {provider}. Supported providers: {', '.join(_cluster_default_configs.keys())}")
-    return json.dumps(_cluster_default_configs[provider], indent=2)
+    enum = ClusterOffering.model_json_schema()["properties"]["cluster_offerings"]["enum"]
+    return json.dumps(enum, indent=2)
 
 
 @mcp.tool()
@@ -204,77 +77,40 @@ async def run_test_matrix(rhoai_version: str, build_image_url: str, providers: d
 
 @mcp.tool()
 async def provision_cluster(
-    cluster_name: str,
-    cluster_type: str = "selfmanaged",
-    config: ClusterProvisionConfig = ClusterProvisionConfig()
+    cluster_offering: ClusterOffering = ClusterOffering(),
+    ocp_version: str = None,
+    sno: bool = False,
+    fips: bool = False,
 ) -> str:
     """
     Provision a cluster for testing RHOAI.
 
     Args:
-        cluster_name: Name of the cluster (max 15 characters)
-        cluster_type: Type of cluster ("selfmanaged" or "managed")
-        config: Cluster configuration (see ClusterProvisionConfig for all options)
+        cluster_offering: Cluster offering type (see ClusterOffering for all options)
+        ocp_version: OpenShift version (optional)
+        sno: SNO flag (optional)
+        fips: FIPS flag (optional)
 
     Returns:
         Jenkins job run URL
 
     Note:
-        Check cluster://defaults resource for provider-specific default configurations.
+        Check cluster://offerings resource for cluster offerings.
     """
-    if len(cluster_name) > 15:
-        raise ValueError("Cluster name must be 15 characters or less")
 
-    job_name = "devops/rhoai-test-flow"
-
-    # Get provider defaults
-    test_environment = config.test_environment
-    test_environment_config = _cluster_default_configs.get(test_environment, _cluster_default_configs["AZURE"])
+    job_name = "cluster-as-a-service/provision_ocp_clusters"
 
     # Handle OCP version format
-    ocp_version = config.ocp_version
-    if len(ocp_version.split('.')) == 2:
-        ocp_version = f"{ocp_version}-latest"
+    if not ocp_version:
+        ocp_version = "4.20"
+    # TODO: force ocp version formatting to be like x.y.z or x.y
 
-    # Build TEST_CLUSTER_DETAILS string
-    test_cluster_details = ",".join([
-        config.region or test_environment_config['region'],
-        config.number_of_master_nodes or test_environment_config['master_nodes'],
-        config.number_of_worker_nodes or test_environment_config['worker_nodes'],
-        config.master_flavor or test_environment_config['master_flavor'],
-        config.worker_flavor or test_environment_config['worker_flavor'],
-        ocp_version,
-        config.ocp_channel,
-        config.cluster_architecture,
-    ])
-
-    # Build Jenkins parameters
+    cluter_details = f"{cluster_offering},{ocp_version},{sno},{fips}"
     params = {
-        "CLUSTER_NAME": cluster_name,
-        "CLUSTER_TYPE": cluster_type.lower(),
-        "INSTALL_CLUSTER": True,
-        "TEST_ENVIRONMENT": test_environment,
-        "DEPROVISION_AFTER_INSTALL_FAILURE": True,
-        "DEPLOY_RHODS_OPERATOR": False,  # temporary fixed
-        "RUN_TESTS": False,  # temporary fixed
-        "PUBLISH_RESULTS_TO": "",  # temporary fixed
-        "TEST_CLUSTER_DETAILS": test_cluster_details,
+        "CLUSTER_DETAILS": cluter_details,
     }
 
-    # Add optional config parameters (using SCREAMING_SNAKE_CASE)
-    if config.single_node_openshift:
-        params["SINGLE_NODE_OPENSHIFT"] = config.single_node_openshift
-    if config.enable_fips_in_cluster:
-        params["ENABLE_FIPS_IN_CLUSTER"] = config.enable_fips_in_cluster
-    if config.test_platform:
-        params["TEST_PLATFORM"] = config.test_platform
-    if config.cluster_action_post_execution:
-        params["CLUSTER_ACTION_POST_EXECUTION"] = config.cluster_action_post_execution
-    if config.team_name:
-        params["TEAM_NAME"] = config.team_name
-
-    # Use the file param method since this job has a File Parameter (EXTERNAL_KUBECONFIG_FILE)
-    return JenkinsClient.getJenkinsClient().run_job_with_file_param(job_name, params, "EXTERNAL_KUBECONFIG_FILE")
+    return JenkinsClient.getJenkinsClient().run_job(job_name, params)
 
 async def get_cluster_info_from_build(build_number: str) -> dict:
     """
