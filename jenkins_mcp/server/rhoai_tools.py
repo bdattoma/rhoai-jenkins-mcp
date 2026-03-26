@@ -112,10 +112,18 @@ async def provision_cluster(
 
     return JenkinsClient.getJenkinsClient().run_job(job_name, params)
 
-async def get_cluster_info_from_build(build_number: str) -> dict:
+#async def get_cluster_info_from_build(build_number: str) -> dict:
+#    """
+#    Get the cluster info from the given build number of provisioning job.
+#    """
+#    job_name = "devops/rhoai-test-flow"
+#    build_info = JenkinsClient.getJenkinsClient().jenkins.get_build_info(job_name, build_number)
+#    return build_info['cluster_info']
+
+@mcp.tool()
+async def get_provisioning_job_status(build_url: str) -> str:
     """
-    Get the cluster info from the given build number of provisioning job.
+    Get the status of the provisioning job.
     """
-    job_name = "devops/rhoai-test-flow"
-    build_info = JenkinsClient.getJenkinsClient().jenkins.get_build_info(job_name, build_number)
-    return build_info['cluster_info']
+    from jenkins_mcp.server.monitoring_tools import check_build_status
+    return await check_build_status(build_url=build_url)
